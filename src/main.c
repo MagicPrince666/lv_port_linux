@@ -1,7 +1,15 @@
 #include "lvgl/lvgl.h"
 #include "lvgl/demos/lv_demos.h"
+#if USE_FBDEV
 #include "lv_drivers/display/fbdev.h"
+#elif USE_SDL
+#include "lv_drivers/sdl/sdl.h"
+#endif
+#if USE_EVDEV
 #include "lv_drivers/indev/evdev.h"
+#elif USE_MOUSE
+#include "lv_drivers/indev/mouse.h"
+#endif
 #include <unistd.h>
 #include <pthread.h>
 #include <time.h>
@@ -15,7 +23,11 @@ int main(void)
     lv_init();
 
     /*Linux frame buffer device init*/
+#if USE_FBDEV
     fbdev_init();
+#elif USE_SDL
+    sdl_init();
+#endif
 
     /*A small buffer for LittlevGL to draw the screen's content*/
     static lv_color_t buf[DISP_BUF_SIZE];
@@ -28,18 +40,34 @@ int main(void)
     static lv_disp_drv_t disp_drv;
     lv_disp_drv_init(&disp_drv);
     disp_drv.draw_buf   = &disp_buf;
-    disp_drv.flush_cb   = fbdev_flush;
-    disp_drv.hor_res    = 800;
-    disp_drv.ver_res    = 480;
+#if USE_FBDEV
+    disp_drv.flush_cb = fbdev_flush;
+    disp_drv.hor_res  = 720;
+    disp_drv.ver_res  = 1280;
+    disp_drv.sw_rotate = 1;              // add for rotation
+    disp_drv.rotated   = LV_DISP_ROT_90; // add for rotation
+#elif USE_SDL
+    disp_drv.flush_cb = sdl_display_flush;
+    disp_drv.hor_res  = SDL_HOR_RES;
+    disp_drv.ver_res  = SDL_VER_RES;
+#endif
     lv_disp_drv_register(&disp_drv);
 
+#if USE_EVDEV
     evdev_init();
+#elif USE_MOUSE
+    mouse_init();
+#endif
     static lv_indev_drv_t indev_drv_1;
     lv_indev_drv_init(&indev_drv_1); /*Basic initialization*/
     indev_drv_1.type = LV_INDEV_TYPE_POINTER;
 
     /*This function will be called periodically (by the library) to get the mouse position and state*/
+#if USE_EVDEV
     indev_drv_1.read_cb = evdev_read;
+#elif USE_MOUSE
+    indev_drv_1.read_cb = mouse_read;
+#endif
     lv_indev_t *mouse_indev = lv_indev_drv_register(&indev_drv_1);
 
 
